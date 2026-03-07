@@ -27,7 +27,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] text-gray-900 flex flex-col items-center p-4">
-      <div className="w-full max-w-md flex flex-col items-center gap-6 mt-10">
+      <div className="w-full max-w-md flex flex-col items-center gap-2 mt-2">
         <div className="flex flex-col items-center gap-0">
           <img 
             src="https://i.postimg.cc/3NpGvWRP/DR-EMERSON-FOTO-PARA-PERFIL-DO-APP.jpg" 
