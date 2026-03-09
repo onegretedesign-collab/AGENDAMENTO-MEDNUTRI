@@ -3,11 +3,12 @@ import { io, Socket } from 'socket.io-client';
 
 const socket: Socket = io();
 
-export default function Chat({ name }: { name: string }) {
+export default function Chat({ name, contact }: { name: string, contact: string }) {
   const [messages, setMessages] = useState<{ sender: string, text: string }[]>([]);
   const [input, setInput] = useState('');
 
   useEffect(() => {
+    socket.emit('chat:join', contact);
     socket.on('chat:message', (data) => {
       setMessages((prev) => [...prev, data]);
     });
@@ -15,11 +16,11 @@ export default function Chat({ name }: { name: string }) {
     return () => {
       socket.off('chat:message');
     };
-  }, []);
+  }, [contact]);
 
   const sendMessage = () => {
     if (input.trim()) {
-      socket.emit('chat:message', { sender: name, text: input });
+      socket.emit('chat:message', { room: contact, sender: name, text: input });
       setInput('');
     }
   };

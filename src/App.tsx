@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Instagram, Download } from 'lucide-react';
 import Chat from './components/Chat';
+import AttendantView from './components/AttendantView';
 
 const CITIES = ['Quirinópolis', 'Caçu', 'São Simão'];
 const WHATSAPP_NUMBER = '5564984530700';
 
 
 export default function App() {
+  if (window.location.pathname === '/attendant') {
+    return <AttendantView />;
+  }
   const [selectedCity, setSelectedCity] = useState<string | null>(() => localStorage.getItem('mednutri_city'));
   const [name, setName] = useState(() => localStorage.getItem('mednutri_name') || '');
+  const [contact, setContact] = useState(() => localStorage.getItem('mednutri_contact') || '');
   const [consultationType, setConsultationType] = useState<string | null>(() => localStorage.getItem('mednutri_type'));
   const [step, setStep] = useState<'welcome' | 'select' | 'type' | 'input' | 'final'>('welcome');
   const [showConfirmBack, setShowConfirmBack] = useState(false);
@@ -21,6 +26,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('mednutri_name', name);
   }, [name]);
+
+  useEffect(() => {
+    localStorage.setItem('mednutri_contact', contact);
+  }, [contact]);
 
   useEffect(() => {
     if (consultationType) localStorage.setItem('mednutri_type', consultationType);
@@ -42,11 +51,11 @@ export default function App() {
   };
 
   const handleConfirm = () => {
-    if (name.trim() && selectedCity && consultationType) {
+    if (name.trim() && contact.trim() && selectedCity && consultationType) {
       fetch('/api/notify-attendant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientName: name, city: selectedCity, type: consultationType }),
+        body: JSON.stringify({ patientName: name, contact, city: selectedCity, type: consultationType }),
       }).catch(console.error);
       setStep('final');
     }
@@ -73,9 +82,11 @@ export default function App() {
     setStep('welcome');
     setSelectedCity(null);
     setName('');
+    setContact('');
     setConsultationType(null);
     localStorage.removeItem('mednutri_city');
     localStorage.removeItem('mednutri_name');
+    localStorage.removeItem('mednutri_contact');
     localStorage.removeItem('mednutri_type');
     localStorage.setItem('mednutri_step', 'welcome');
   };
@@ -181,12 +192,19 @@ export default function App() {
 
         {step === 'input' && (
           <div className="w-full flex flex-col gap-4">
-            <h1 className="text-2xl font-bold text-center">Olá! Qual o seu nome?</h1>
+            <h1 className="text-2xl font-bold text-center">Olá! Qual o seu nome e contato?</h1>
             <input 
               type="text" 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Digite seu nome aqui"
+              className="w-full p-4 border-2 border-gray-300 rounded-xl focus:border-[#05556C] outline-none transition-colors"
+            />
+            <input 
+              type="tel" 
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder="Digite seu WhatsApp/Contato"
               className="w-full p-4 border-2 border-gray-300 rounded-xl focus:border-[#05556C] outline-none transition-colors"
             />
             <button 
@@ -218,7 +236,7 @@ export default function App() {
             >
               Falar no WhatsApp
             </a>
-            <Chat name={name} />
+            <Chat name={name} contact={contact} />
             <button 
               onClick={handleBack}
               className="w-full py-2 text-gray-500 hover:text-gray-700 font-medium transition-colors"

@@ -84,8 +84,18 @@ async function startServer() {
   io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
 
+    socket.on("chat:join", (room) => {
+      socket.join(room);
+      console.log(`User ${socket.id} joined room ${room}`);
+    });
+
+    socket.on("get:rooms", () => {
+      const rooms = Array.from(io.sockets.adapter.rooms.keys()).filter(r => !io.sockets.adapter.sids.has(r));
+      socket.emit("rooms:list", rooms);
+    });
+
     socket.on("chat:message", (data) => {
-      io.emit("chat:message", data);
+      io.to(data.room).emit("chat:message", data);
     });
 
     socket.on("disconnect", () => {
