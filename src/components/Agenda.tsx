@@ -5,7 +5,7 @@ const socket = io();
 
 type Appointment = { id: string, patientName: string, contact: string, date: string, time: string, status: 'Scheduled' | 'Confirmed' | 'Cancelled' | 'Completed' };
 
-export default function Agenda({ selectedPatient }: { selectedPatient: string | null }) {
+export default function Agenda({ selectedPatient, onOpenChat }: { selectedPatient: string | null, onOpenChat: (contact: string) => void }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -80,8 +80,9 @@ export default function Agenda({ selectedPatient }: { selectedPatient: string | 
       <div>
         {appointments.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)).map(app => (
           <div key={app.id} className="flex justify-between items-center p-2 border-b">
-            <span>{app.date} {app.time} - {app.patientName} ({app.contact})</span>
+            <span className="cursor-pointer hover:text-[#05556C]" onClick={() => onOpenChat(app.contact)}>{app.date} {app.time} - {app.patientName} ({app.contact})</span>
             <div className="flex items-center gap-2">
+              <button onClick={() => onOpenChat(app.contact)} className="text-[#05556C] font-semibold">Chat</button>
               <select value={app.status} onChange={(e) => updateStatus(app.id, e.target.value as Appointment['status'])} className="border p-1 rounded text-sm">
                 <option value="Scheduled">Scheduled</option>
                 <option value="Confirmed">Confirmed</option>

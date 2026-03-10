@@ -16,8 +16,17 @@ export default function Chat({ name, contact }: { name: string, contact: string 
     socket.on('chat:appointment-confirmed', (data) => {
       setMessages((prev) => [...prev, { sender: 'Sistema', text: 'Consulta agendada com sucesso!' }]);
       
-      // Notify patient via WhatsApp
+      // Notify patient via WhatsApp and SMS
       fetch('/api/notify-patient-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: contact,
+          message: 'Consulta agendada com sucesso! O atendimento será encerrado em 5 segundos.'
+        })
+      }).catch(console.error);
+      
+      fetch('/api/notify-patient-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

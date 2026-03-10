@@ -88,16 +88,38 @@ async function startServer() {
   // Notify Patient (WhatsApp)
   app.post("/api/notify-patient-whatsapp", async (req, res) => {
     const { phoneNumber, message } = req.body;
+    const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
     if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
       try {
         await twilioClient.messages.create({
           body: message,
           from: `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`,
-          to: `whatsapp:${phoneNumber}`,
+          to: `whatsapp:${formattedNumber}`,
         });
         res.json({ success: true });
       } catch (e) {
         console.error("Twilio WhatsApp error:", e);
+        res.status(500).json({ error: "Failed to notify patient" });
+      }
+    } else {
+      res.status(500).json({ error: "Twilio not configured" });
+    }
+  });
+
+  // Notify Patient (SMS)
+  app.post("/api/notify-patient-sms", async (req, res) => {
+    const { phoneNumber, message } = req.body;
+    const formattedNumber = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+    if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
+      try {
+        await twilioClient.messages.create({
+          body: message,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: formattedNumber,
+        });
+        res.json({ success: true });
+      } catch (e) {
+        console.error("Twilio SMS error:", e);
         res.status(500).json({ error: "Failed to notify patient" });
       }
     } else {

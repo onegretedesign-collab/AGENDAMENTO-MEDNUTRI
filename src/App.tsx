@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Instagram } from 'lucide-react';
+import { io } from 'socket.io-client';
 import Chat from './components/Chat';
 import Login from './components/Login';
 import AttendantView from './components/AttendantView';
+
+const socket = io();
 
 const CITIES = ['Quirinópolis', 'Caçu', 'São Simão'];
 const WHATSAPP_NUMBER = '5564984530700';
@@ -10,7 +13,17 @@ const WHATSAPP_NUMBER = '5564984530700';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('mednutri_isLoggedIn') === 'true');
+  const [unreadCount, setUnreadCount] = useState(0);
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    socket.on('chat:message', () => {
+      if (window.location.pathname !== '/attendant') {
+        setUnreadCount(prev => prev + 1);
+      }
+    });
+    return () => { socket.off('chat:message'); };
+  }, []);
   const [selectedCity, setSelectedCity] = useState<string | null>(() => localStorage.getItem('mednutri_city'));
   const [name, setName] = useState(() => localStorage.getItem('mednutri_name') || '');
   const [contact, setContact] = useState(() => localStorage.getItem('mednutri_contact') || '');
@@ -163,10 +176,16 @@ export default function App() {
               onClick={() => {
                 window.history.pushState({}, '', '/attendant');
                 setCurrentPath('/attendant');
+                setUnreadCount(0);
               }}
-              className="w-full py-4 rounded-xl text-gray-500 font-semibold text-center hover:bg-gray-100 transition-colors border border-gray-300 text-lg"
+              className="w-full py-4 rounded-xl text-gray-500 font-semibold text-center hover:bg-gray-100 transition-colors border border-gray-300 text-lg relative"
             >
               Área do Atendente
+              {unreadCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                  {unreadCount}
+                </span>
+              )}
             </button>
           </div>
         )}
