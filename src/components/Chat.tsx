@@ -13,10 +13,16 @@ export default function Chat({ name, contact }: { name: string, contact: string 
       setMessages((prev) => [...prev, data]);
     });
 
+    if (name !== 'Atendente' && !localStorage.getItem(`mednutri_auto_sent_${contact}`)) {
+      const msg = 'Olá, gostaria de agendar meu retorno ou consulta?';
+      socket.emit('chat:message', { room: contact, sender: name, text: msg });
+      localStorage.setItem(`mednutri_auto_sent_${contact}`, 'true');
+    }
+
     return () => {
       socket.off('chat:message');
     };
-  }, [contact]);
+  }, [contact, name]);
 
   const sendMessage = () => {
     if (input.trim()) {
