@@ -10,26 +10,19 @@ const WHATSAPP_NUMBER = '5564984530700';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('mednutri_isLoggedIn') === 'true');
-
-  if (window.location.pathname === '/attendant') {
-    if (!isLoggedIn) {
-      return <Login onLogin={() => {
-        localStorage.setItem('mednutri_isLoggedIn', 'true');
-        setIsLoggedIn(true);
-      }} />;
-    }
-    return <AttendantView onLogout={() => {
-      localStorage.removeItem('mednutri_isLoggedIn');
-      setIsLoggedIn(false);
-      window.location.href = '/';
-    }} />;
-  }
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [selectedCity, setSelectedCity] = useState<string | null>(() => localStorage.getItem('mednutri_city'));
   const [name, setName] = useState(() => localStorage.getItem('mednutri_name') || '');
   const [contact, setContact] = useState(() => localStorage.getItem('mednutri_contact') || '');
   const [consultationType, setConsultationType] = useState<string | null>(() => localStorage.getItem('mednutri_type'));
   const [step, setStep] = useState<'welcome' | 'select' | 'type' | 'input' | 'final'>('welcome');
   const [showConfirmBack, setShowConfirmBack] = useState(false);
+
+  useEffect(() => {
+    const handleLocationChange = () => setCurrentPath(window.location.pathname);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
 
   useEffect(() => {
     if (selectedCity) localStorage.setItem('mednutri_city', selectedCity);
@@ -52,6 +45,23 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('mednutri_step', step);
   }, [step]);
+
+  const normalizedPath = currentPath.replace(/\/$/, "");
+  console.log('Current path:', normalizedPath, 'Is logged in:', isLoggedIn);
+
+  if (normalizedPath === '/attendant') {
+    if (!isLoggedIn) {
+      return <Login onLogin={() => {
+        localStorage.setItem('mednutri_isLoggedIn', 'true');
+        setIsLoggedIn(true);
+      }} />;
+    }
+    return <AttendantView onLogout={() => {
+      localStorage.removeItem('mednutri_isLoggedIn');
+      setIsLoggedIn(false);
+      window.location.href = '/';
+    }} />;
+  }
 
   const handleCitySelect = (city: string) => {
     setSelectedCity(city);
@@ -158,12 +168,15 @@ export default function App() {
               <Download size={20} />
               Baixar App
             </a>
-            <a 
-              href="/attendant"
+            <button 
+              onClick={() => {
+                window.history.pushState({}, '', '/attendant');
+                setCurrentPath('/attendant');
+              }}
               className="w-full py-4 rounded-xl text-gray-500 font-semibold text-center hover:bg-gray-100 transition-colors border border-gray-300 text-lg"
             >
               Área do Atendente
-            </a>
+            </button>
           </div>
         )}
 
