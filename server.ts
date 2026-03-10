@@ -54,6 +54,12 @@ async function startServer() {
     res.json(appointment);
   });
 
+  app.patch("/api/appointments/:id", (req, res) => {
+    const { status } = req.body;
+    appointments = appointments.map(a => a.id === req.params.id ? { ...a, status } : a);
+    res.json(appointments.find(a => a.id === req.params.id));
+  });
+
   app.delete("/api/appointments/:id", (req, res) => {
     appointments = appointments.filter(a => a.id !== req.params.id);
     res.status(204).send();
@@ -73,6 +79,26 @@ async function startServer() {
       } catch (e) {
         console.error("Twilio error:", e);
         res.status(500).json({ error: "Failed to notify attendant" });
+      }
+    } else {
+      res.status(500).json({ error: "Twilio not configured" });
+    }
+  });
+
+  // Notify Patient (WhatsApp)
+  app.post("/api/notify-patient-whatsapp", async (req, res) => {
+    const { phoneNumber, message } = req.body;
+    if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
+      try {
+        await twilioClient.messages.create({
+          body: message,
+          from: `whatsapp:${process.env.TWILIO_PHONE_NUMBER}`,
+          to: `whatsapp:${phoneNumber}`,
+        });
+        res.json({ success: true });
+      } catch (e) {
+        console.error("Twilio WhatsApp error:", e);
+        res.status(500).json({ error: "Failed to notify patient" });
       }
     } else {
       res.status(500).json({ error: "Twilio not configured" });

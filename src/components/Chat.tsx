@@ -6,6 +6,7 @@ const socket: Socket = io();
 export default function Chat({ name, contact }: { name: string, contact: string }) {
   const [messages, setMessages] = useState<{ sender: string, text: string, type?: string, appointmentId?: string }[]>([]);
   const [input, setInput] = useState('');
+  const [isClosed, setIsClosed] = useState(false);
 
   useEffect(() => {
     socket.emit('chat:join', contact);
@@ -14,11 +15,21 @@ export default function Chat({ name, contact }: { name: string, contact: string 
     });
     socket.on('chat:appointment-confirmed', (data) => {
       setMessages((prev) => [...prev, { sender: 'Sistema', text: 'Consulta agendada com sucesso!' }]);
+      
+      // Notify patient via WhatsApp
+      fetch('/api/notify-patient-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: contact,
+          message: 'Consulta agendada com sucesso! O atendimento será encerrado em 5 segundos.'
+        })
+      }).catch(console.error);
+
       setTimeout(() => {
         setMessages((prev) => [...prev, { sender: 'Sistema', text: 'O atendimento será encerrado em 5 segundos.' }]);
         setTimeout(() => {
-          // Logic to close chat
-          window.location.reload(); // Simple way to "close" for now
+          setIsClosed(true);
         }, 5000);
       }, 1000);
     });
@@ -45,6 +56,15 @@ export default function Chat({ name, contact }: { name: string, contact: string 
       setInput('');
     }
   };
+
+  if (isClosed) {
+    return (
+      <div className="w-full max-w-md flex flex-col gap-4 p-4 border rounded-xl bg-gray-50 items-center justify-center">
+        <h2 className="font-bold text-lg text-[#05556C]">Chat Encerrado</h2>
+        <p>O atendimento foi finalizado.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-md flex flex-col gap-4 p-4 border rounded-xl bg-gray-50">

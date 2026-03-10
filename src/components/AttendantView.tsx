@@ -25,12 +25,21 @@ export default function AttendantView({ onLogout }: { onLogout: () => void }) {
   }, [selectedRoom]);
 
   useEffect(() => {
+    if (Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
     socket.emit('get:rooms');
     socket.on('rooms:list', (rooms: string[]) => setRooms(rooms));
     socket.on('chat:message', (data) => {
       if (data.room !== selectedRoomRef.current) {
         setUnreadMessages(prev => new Set(prev).add(data.room));
         new Audio('https://actions.google.com/sounds/v1/notifications/beep_short.ogg').play().catch(console.error);
+        if (Notification.permission === 'granted') {
+          new Notification('Nova mensagem', { body: `Paciente ${data.room} enviou uma mensagem.` });
+        }
       }
     });
     return () => { 

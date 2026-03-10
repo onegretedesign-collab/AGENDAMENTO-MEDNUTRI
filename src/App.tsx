@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Instagram, Download } from 'lucide-react';
+import { Instagram } from 'lucide-react';
 import Chat from './components/Chat';
 import Login from './components/Login';
 import AttendantView from './components/AttendantView';
@@ -159,15 +159,6 @@ export default function App() {
             >
               Agendar Consulta
             </button>
-            <a 
-              href="https://play.google.com/store/apps/details?id=com.mednutri.app" 
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-4 rounded-xl text-[#05556C] font-semibold text-center hover:bg-gray-100 transition-colors border border-[#05556C] text-lg flex items-center justify-center gap-2"
-            >
-              <Download size={20} />
-              Baixar App
-            </a>
             <button 
               onClick={() => {
                 window.history.pushState({}, '', '/attendant');

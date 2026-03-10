@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 
 const socket = io();
 
-type Appointment = { id: string, patientName: string, contact: string, date: string, time: string };
+type Appointment = { id: string, patientName: string, contact: string, date: string, time: string, status: 'Scheduled' | 'Confirmed' | 'Cancelled' | 'Completed' };
 
 export default function Agenda({ selectedPatient }: { selectedPatient: string | null }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -29,7 +29,7 @@ export default function Agenda({ selectedPatient }: { selectedPatient: string | 
     fetch('/api/appointments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ patientName, contact, date, time }),
+      body: JSON.stringify({ patientName, contact, date, time, status: 'Scheduled' }),
     }).then(res => res.json()).then(newApp => {
       setAppointments([...appointments, newApp]);
       setConfirmAdd(false);
@@ -47,6 +47,16 @@ export default function Agenda({ selectedPatient }: { selectedPatient: string | 
       setContact('');
       setDate('');
       setTime('');
+    });
+  };
+
+  const updateStatus = (id: string, status: Appointment['status']) => {
+    fetch(`/api/appointments/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    }).then(() => {
+      setAppointments(appointments.map(a => a.id === id ? { ...a, status } : a));
     });
   };
 
@@ -71,7 +81,15 @@ export default function Agenda({ selectedPatient }: { selectedPatient: string | 
         {appointments.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)).map(app => (
           <div key={app.id} className="flex justify-between items-center p-2 border-b">
             <span>{app.date} {app.time} - {app.patientName} ({app.contact})</span>
-            <button onClick={() => setConfirmRemove(app.id)} className="text-red-500">Remover</button>
+            <div className="flex items-center gap-2">
+              <select value={app.status} onChange={(e) => updateStatus(app.id, e.target.value as Appointment['status'])} className="border p-1 rounded text-sm">
+                <option value="Scheduled">Scheduled</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Cancelled">Cancelled</option>
+                <option value="Completed">Completed</option>
+              </select>
+              <button onClick={() => setConfirmRemove(app.id)} className="text-red-500">Remover</button>
+            </div>
           </div>
         ))}
       </div>
