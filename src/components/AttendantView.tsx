@@ -33,6 +33,12 @@ export default function AttendantView({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     socket.emit('get:rooms');
     socket.on('rooms:list', (rooms: string[]) => setRooms(rooms));
+    socket.on('room:new', (room: string) => {
+      setRooms(prev => [...prev, room]);
+      if (!selectedRoomRef.current) {
+        setSelectedRoom(room);
+      }
+    });
     socket.on('chat:message', (data) => {
       if (data.room !== selectedRoomRef.current) {
         setUnreadMessages(prev => new Set(prev).add(data.room));
@@ -44,6 +50,7 @@ export default function AttendantView({ onLogout }: { onLogout: () => void }) {
     });
     return () => { 
       socket.off('rooms:list'); 
+      socket.off('room:new');
       socket.off('chat:message');
     };
   }, []);

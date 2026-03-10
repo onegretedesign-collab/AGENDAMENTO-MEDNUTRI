@@ -139,7 +139,11 @@ async function startServer() {
     });
 
     socket.on("chat:message", (data) => {
+      const isNewRoom = !io.sockets.adapter.rooms.has(data.room);
       io.to(data.room).emit("chat:message", data);
+      if (isNewRoom) {
+        io.emit("room:new", data.room);
+      }
     });
 
     socket.on("chat:appointment-confirmed", (data) => {
