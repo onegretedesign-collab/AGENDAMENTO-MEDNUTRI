@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import Chat from './Chat';
 import Agenda from './Agenda';
@@ -10,11 +10,33 @@ export default function AttendantView({ onLogout }: { onLogout: () => void }) {
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [newContact, setNewContact] = useState('');
   const [activeTab, setActiveTab] = useState<'chat' | 'agenda'>('chat');
+  const [unreadMessages, setUnreadMessages] = useState<Set<string>>(new Set());
+  const selectedRoomRef = useRef(selectedRoom);
+
+  useEffect(() => {
+    selectedRoomRef.current = selectedRoom;
+    if (selectedRoom) {
+      setUnreadMessages(prev => {
+        const next = new Set(prev);
+        next.delete(selectedRoom);
+        return next;
+      });
+    }
+  }, [selectedRoom]);
 
   useEffect(() => {
     socket.emit('get:rooms');
     socket.on('rooms:list', (rooms: string[]) => setRooms(rooms));
-    return () => { socket.off('rooms:list'); };
+    socket.on('chat:message', (data) => {
+      if (data.room !== selectedRoomRef.current) {
+        setUnreadMessages(prev => new Set(prev).add(data.room));
+        new Audio('https://actions.google.com/sounds/v1/notifications/beep_short.ogg').play().catch(console.error);
+      }
+    });
+    return () => { 
+      socket.off('rooms:list'); 
+      socket.off('chat:message');
+    };
   }, []);
 
   const handleJoinManual = () => {
@@ -45,25 +67,23 @@ export default function AttendantView({ onLogout }: { onLogout: () => void }) {
         <button onClick={onLogout} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">Sair</button>
       </div>
       <div className="flex flex-1 overflow-hidden">
-        {activeTab === 'chat' ? (
-          <>
-            <div className="w-1/3 border-r p-4 overflow-y-auto">
-              <h2 className="font-bold text-lg mb-4">Pacientes Ativos</h2>
-              {rooms.map(room => (
-                <button key={room} onClick={() => setSelectedRoom(room)} className={`w-full p-2 border rounded mb-2 hover:bg-gray-100 ${selectedRoom === room ? 'bg-blue-50 border-blue-500' : ''}`}>
-                  {room}
-                </button>
-              ))}
-            </div>
-            <div className="w-2/3 p-4 overflow-y-auto">
-              {selectedRoom ? <Chat name="Atendente" contact={selectedRoom} /> : <p>Selecione um paciente ou digite o contato acima</p>}
-            </div>
-          </>
-        ) : (
-          <div className="w-full overflow-y-auto">
-            <Agenda />
+        <div className={`w-full flex ${activeTab === 'chat' ? '' : 'hidden'}`}>
+          <div className="w-1/3 border-r p-4 overflow-y-auto">
+            <h2 className="font-bold text-lg mb-4">Pacientes Ativos</h2>
+            {rooms.map(room => (
+              <button key={room} onClick={() => setSelectedRoom(room)} className={`w-full p-2 border rounded mb-2 hover:bg-gray-100 flex justify-between items-center ${selectedRoom === room ? 'bg-blue-50 border-blue-500' : ''}`}>
+                {room}
+                {unreadMessages.has(room) && <span className="w-3 h-3 bg-red-500 rounded-full"></span>}
+              </button>
+            ))}
           </div>
-        )}
+          <div className="w-2/3 p-4 overflow-y-auto">
+            {selectedRoom ? <Chat name="Atendente" contact={selectedRoom} /> : <p>Selecione um paciente ou digite o contato acima</p>}
+          </div>
+        </div>
+        <div className={`w-full overflow-y-auto ${activeTab === 'agenda' ? '' : 'hidden'}`}>
+          <Agenda />
+        </div>
       </div>
     </div>
   );
