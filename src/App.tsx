@@ -1,26 +1,40 @@
 import { useState, useEffect } from 'react';
 import { Instagram } from 'lucide-react';
+import { io } from 'socket.io-client';
+import Login from './components/Login';
+import AttendantView from './components/AttendantView';
+
+const socket = io();
 
 const CITIES = ['Quirinópolis', 'Caçu', 'São Simão'];
 const WHATSAPP_NUMBER = '5564984530700';
 
-type Appointment = {
-  city: string;
-  type: string;
-  name: string;
-  date: string;
-};
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('mednutri_isLoggedIn') === 'true');
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    socket.on('chat:message', () => {
+      if (window.location.pathname !== '/attendant') {
+        setUnreadCount(prev => prev + 1);
+      }
+    });
+    return () => { socket.off('chat:message'); };
+  }, []);
   const [selectedCity, setSelectedCity] = useState<string | null>(() => localStorage.getItem('mednutri_city'));
   const [name, setName] = useState(() => localStorage.getItem('mednutri_name') || '');
+  const [contact, setContact] = useState(() => localStorage.getItem('mednutri_contact') || '');
   const [consultationType, setConsultationType] = useState<string | null>(() => localStorage.getItem('mednutri_type'));
-  const [step, setStep] = useState<'welcome' | 'select' | 'type' | 'input' | 'final' | 'history'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'select' | 'type' | 'input' | 'final'>('welcome');
   const [showConfirmBack, setShowConfirmBack] = useState(false);
-  const [history, setHistory] = useState<Appointment[]>(() => {
-    const saved = localStorage.getItem('mednutri_history');
-    return saved ? JSON.parse(saved) : [];
-  });
+
+  useEffect(() => {
+    const handleLocationChange = () => setCurrentPath(window.location.pathname);
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
 
   useEffect(() => {
     if (selectedCity) localStorage.setItem('mednutri_city', selectedCity);
@@ -32,6 +46,10 @@ export default function App() {
   }, [name]);
 
   useEffect(() => {
+    localStorage.setItem('mednutri_contact', contact);
+  }, [contact]);
+
+  useEffect(() => {
     if (consultationType) localStorage.setItem('mednutri_type', consultationType);
     else localStorage.removeItem('mednutri_type');
   }, [consultationType]);
@@ -39,6 +57,23 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('mednutri_step', step);
   }, [step]);
+
+  const normalizedPath = currentPath.replace(/\/$/, "");
+  console.log('Current path:', normalizedPath, 'Is logged in:', isLoggedIn);
+
+  if (normalizedPath === '/attendant') {
+    if (!isLoggedIn) {
+      return <Login onLogin={() => {
+        localStorage.setItem('mednutri_isLoggedIn', 'true');
+        setIsLoggedIn(true);
+      }} />;
+    }
+    return <AttendantView onLogout={() => {
+      localStorage.removeItem('mednutri_isLoggedIn');
+      setIsLoggedIn(false);
+      window.location.href = '/';
+    }} />;
+  }
 
   const handleCitySelect = (city: string) => {
     setSelectedCity(city);
@@ -51,16 +86,12 @@ export default function App() {
   };
 
   const handleConfirm = () => {
-    if (name.trim() && selectedCity && consultationType) {
-      const newAppointment: Appointment = {
-        city: selectedCity,
-        type: consultationType,
-        name: name,
-        date: new Date().toLocaleDateString('pt-BR'),
-      };
-      const updatedHistory = [...history, newAppointment];
-      setHistory(updatedHistory);
-      localStorage.setItem('mednutri_history', JSON.stringify(updatedHistory));
+    if (name.trim() && contact.trim() && selectedCity && consultationType) {
+      fetch('/api/notify-attendant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientName: name, contact, city: selectedCity, type: consultationType }),
+      }).catch(console.error);
       setStep('final');
     }
   };
@@ -78,8 +109,6 @@ export default function App() {
       setConsultationType(null);
     } else if (step === 'final') {
       setStep('input');
-    } else if (step === 'history') {
-      setStep('select');
     }
     setShowConfirmBack(false);
   };
@@ -88,9 +117,11 @@ export default function App() {
     setStep('welcome');
     setSelectedCity(null);
     setName('');
+    setContact('');
     setConsultationType(null);
     localStorage.removeItem('mednutri_city');
     localStorage.removeItem('mednutri_name');
+    localStorage.removeItem('mednutri_contact');
     localStorage.removeItem('mednutri_type');
     localStorage.setItem('mednutri_step', 'welcome');
   };
@@ -140,6 +171,21 @@ export default function App() {
             >
               Agendar Consulta
             </button>
+            <button 
+              onClick={() => {
+                window.history.pushState({}, '', '/attendant');
+                setCurrentPath('/attendant');
+                setUnreadCount(0);
+              }}
+              className="w-full py-4 rounded-xl text-gray-500 font-semibold text-center hover:bg-gray-100 transition-colors border border-gray-300 text-lg relative"
+            >
+              Área do Atendente
+              {unreadCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
           </div>
         )}
 
@@ -156,34 +202,6 @@ export default function App() {
                 {city}
               </button>
             ))}
-            {history.length > 0 && (
-              <button 
-                onClick={() => setStep('history')}
-                className="w-full py-3 mt-2 bg-gray-100 text-[#05556C] font-semibold rounded-xl hover:bg-gray-200 transition-colors border border-[#05556C]/10"
-              >
-                Ver Histórico de Agendamentos
-              </button>
-            )}
-          </div>
-        )}
-
-        {step === 'history' && (
-          <div className="w-full flex flex-col gap-4">
-            <h1 className="text-2xl font-bold text-center">Histórico</h1>
-            <div className="w-full flex flex-col gap-3 max-h-96 overflow-y-auto pr-2">
-              {history.map((app, index) => (
-                <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <p className="font-bold text-[#05556C]">{app.type} - {app.city}</p>
-                  <p className="text-sm text-gray-600">Data: {app.date}</p>
-                </div>
-              ))}
-            </div>
-            <button 
-              onClick={() => setStep('select')}
-              className="w-full py-3 mt-2 bg-[#05556C] text-white font-semibold rounded-xl hover:scale-105 transition-transform duration-200"
-            >
-              Voltar
-            </button>
           </div>
         )}
 
@@ -215,12 +233,19 @@ export default function App() {
 
         {step === 'input' && (
           <div className="w-full flex flex-col gap-4">
-            <h1 className="text-2xl font-bold text-center">Olá! Qual o seu nome?</h1>
+            <h1 className="text-2xl font-bold text-center">Olá! Qual o seu nome e contato?</h1>
             <input 
               type="text" 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Digite seu nome aqui"
+              className="w-full p-4 border-2 border-gray-300 rounded-xl focus:border-[#05556C] outline-none transition-colors"
+            />
+            <input 
+              type="tel" 
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder="Digite seu WhatsApp/Contato"
               className="w-full p-4 border-2 border-gray-300 rounded-xl focus:border-[#05556C] outline-none transition-colors"
             />
             <button 

@@ -42,7 +42,7 @@ async function startServer() {
   });
 
   // In-memory appointments
-  let appointments: { id: string, patientName: string, contact: string, date: string, time: string }[] = [];
+  let appointments: { id: string, patientName: string, contact: string, date: string, time: string, status?: string, pushToken?: string }[] = [];
 
   app.get("/api/appointments", (req, res) => {
     res.json(appointments);
@@ -54,10 +54,33 @@ async function startServer() {
     res.json(appointment);
   });
 
-  app.patch("/api/appointments/:id", (req, res) => {
-    const { status } = req.body;
-    appointments = appointments.map(a => a.id === req.params.id ? { ...a, status } : a);
-    res.json(appointments.find(a => a.id === req.params.id));
+  app.patch("/api/appointments/:id", async (req, res) => {
+    const { status, date, time } = req.body;
+    const oldAppointment = appointments.find(a => a.id === req.params.id);
+    appointments = appointments.map(a => a.id === req.params.id ? { ...a, ...(status && { status }), ...(date && { date }), ...(time && { time }) } : a);
+    const newAppointment = appointments.find(a => a.id === req.params.id);
+
+    if (newAppointment && newAppointment.pushToken) {
+      let message = "";
+      if (status && status !== oldAppointment?.status) {
+        message = `Seu agendamento foi atualizado para: ${status}`;
+      } else if (date || time) {
+        message = `Seu agendamento foi reagendado para: ${newAppointment.date} às ${newAppointment.time}`;
+      }
+
+      if (message && admin.apps.length > 0) {
+        try {
+          await admin.messaging().send({
+            token: newAppointment.pushToken,
+            notification: { title: "MedNutri", body: message },
+          });
+        } catch (e) {
+          console.error("Firebase error:", e);
+        }
+      }
+    }
+
+    res.json(newAppointment);
   });
 
   app.delete("/api/appointments/:id", (req, res) => {
@@ -149,28 +172,6 @@ async function startServer() {
   // Socket.io logic
   io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
-
-    socket.on("chat:join", (room) => {
-      socket.join(room);
-      console.log(`User ${socket.id} joined room ${room}`);
-    });
-
-    socket.on("get:rooms", () => {
-      const rooms = Array.from(io.sockets.adapter.rooms.keys()).filter(r => !io.sockets.adapter.sids.has(r));
-      socket.emit("rooms:list", rooms);
-    });
-
-    socket.on("chat:message", (data) => {
-      const isNewRoom = !io.sockets.adapter.rooms.has(data.room);
-      io.to(data.room).emit("chat:message", data);
-      if (isNewRoom) {
-        io.emit("room:new", data.room);
-      }
-    });
-
-    socket.on("chat:appointment-confirmed", (data) => {
-      io.to(data.room).emit("chat:appointment-confirmed", data);
-    });
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
