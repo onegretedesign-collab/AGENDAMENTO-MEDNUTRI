@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
+
+const socket = io();
 
 type Appointment = { id: string, patientName: string, contact: string, date: string, time: string };
 
-export default function Agenda() {
+export default function Agenda({ selectedPatient }: { selectedPatient: string | null }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -13,7 +16,8 @@ export default function Agenda() {
 
   useEffect(() => {
     fetch('/api/appointments').then(res => res.json()).then(setAppointments);
-  }, []);
+    if (selectedPatient) setContact(selectedPatient);
+  }, [selectedPatient]);
 
   const addAppointment = () => {
     if (date && time && patientName && contact) {
@@ -29,6 +33,16 @@ export default function Agenda() {
     }).then(res => res.json()).then(newApp => {
       setAppointments([...appointments, newApp]);
       setConfirmAdd(false);
+      
+      // Emit appointment proposal to chat
+      socket.emit('chat:message', {
+        room: contact,
+        sender: 'Atendente',
+        text: `Agendado para ${date} às ${time}. Por favor, confirme.`,
+        type: 'appointment-proposal',
+        appointmentId: newApp.id
+      });
+
       setPatientName('');
       setContact('');
       setDate('');

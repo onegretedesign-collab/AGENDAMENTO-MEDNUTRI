@@ -82,7 +82,7 @@ export default function AttendantView({ onLogout }: { onLogout: () => void }) {
           </div>
         </div>
         <div className={`w-full overflow-y-auto ${activeTab === 'agenda' ? '' : 'hidden'}`}>
-          <Agenda />
+          <Agenda selectedPatient={selectedRoom} />
         </div>
       </div>
     </div>

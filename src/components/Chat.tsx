@@ -4,13 +4,23 @@ import { io, Socket } from 'socket.io-client';
 const socket: Socket = io();
 
 export default function Chat({ name, contact }: { name: string, contact: string }) {
-  const [messages, setMessages] = useState<{ sender: string, text: string }[]>([]);
+  const [messages, setMessages] = useState<{ sender: string, text: string, type?: string, appointmentId?: string }[]>([]);
   const [input, setInput] = useState('');
 
   useEffect(() => {
     socket.emit('chat:join', contact);
     socket.on('chat:message', (data) => {
       setMessages((prev) => [...prev, data]);
+    });
+    socket.on('chat:appointment-confirmed', (data) => {
+      setMessages((prev) => [...prev, { sender: 'Sistema', text: 'Consulta agendada com sucesso!' }]);
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { sender: 'Sistema', text: 'O atendimento será encerrado em 5 segundos.' }]);
+        setTimeout(() => {
+          // Logic to close chat
+          window.location.reload(); // Simple way to "close" for now
+        }, 5000);
+      }, 1000);
     });
 
     if (name !== 'Atendente' && !localStorage.getItem(`mednutri_auto_sent_${contact}`)) {
@@ -21,8 +31,13 @@ export default function Chat({ name, contact }: { name: string, contact: string 
 
     return () => {
       socket.off('chat:message');
+      socket.off('chat:appointment-confirmed');
     };
   }, [contact, name]);
+
+  const confirmAppointment = (appointmentId: string) => {
+    socket.emit('chat:appointment-confirmed', { room: contact, appointmentId });
+  };
 
   const sendMessage = () => {
     if (input.trim()) {
@@ -39,6 +54,9 @@ export default function Chat({ name, contact }: { name: string, contact: string 
           <div key={i} className={`p-2 rounded ${msg.sender === name ? 'bg-blue-100 self-end' : 'bg-gray-200 self-start'}`}>
             <span className="font-bold text-xs">{msg.sender}: </span>
             {msg.text}
+            {msg.type === 'appointment-proposal' && (
+              <button onClick={() => confirmAppointment(msg.appointmentId!)} className="block mt-2 bg-green-500 text-white px-2 py-1 rounded text-sm">Confirmar</button>
+            )}
           </div>
         ))}
       </div>

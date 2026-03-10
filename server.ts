@@ -116,6 +116,10 @@ async function startServer() {
       io.to(data.room).emit("chat:message", data);
     });
 
+    socket.on("chat:appointment-confirmed", (data) => {
+      io.to(data.room).emit("chat:appointment-confirmed", data);
+    });
+
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
     });
