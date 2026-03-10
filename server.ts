@@ -41,6 +41,24 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // In-memory appointments
+  let appointments: { id: string, patientName: string, contact: string, date: string, time: string }[] = [];
+
+  app.get("/api/appointments", (req, res) => {
+    res.json(appointments);
+  });
+
+  app.post("/api/appointments", (req, res) => {
+    const appointment = { id: Date.now().toString(), ...req.body };
+    appointments.push(appointment);
+    res.json(appointment);
+  });
+
+  app.delete("/api/appointments/:id", (req, res) => {
+    appointments = appointments.filter(a => a.id !== req.params.id);
+    res.status(204).send();
+  });
+
   // Notify Attendant (WhatsApp)
   app.post("/api/notify-attendant", async (req, res) => {
     const { patientName, city, type } = req.body;

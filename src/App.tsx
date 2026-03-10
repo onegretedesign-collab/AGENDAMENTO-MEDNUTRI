@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Instagram, Download } from 'lucide-react';
 import Chat from './components/Chat';
+import Login from './components/Login';
 import AttendantView from './components/AttendantView';
 
 const CITIES = ['Quirinópolis', 'Caçu', 'São Simão'];
@@ -8,8 +9,20 @@ const WHATSAPP_NUMBER = '5564984530700';
 
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('mednutri_isLoggedIn') === 'true');
+
   if (window.location.pathname === '/attendant') {
-    return <AttendantView />;
+    if (!isLoggedIn) {
+      return <Login onLogin={() => {
+        localStorage.setItem('mednutri_isLoggedIn', 'true');
+        setIsLoggedIn(true);
+      }} />;
+    }
+    return <AttendantView onLogout={() => {
+      localStorage.removeItem('mednutri_isLoggedIn');
+      setIsLoggedIn(false);
+      window.location.href = '/';
+    }} />;
   }
   const [selectedCity, setSelectedCity] = useState<string | null>(() => localStorage.getItem('mednutri_city'));
   const [name, setName] = useState(() => localStorage.getItem('mednutri_name') || '');
@@ -144,6 +157,12 @@ export default function App() {
             >
               <Download size={20} />
               Baixar App
+            </a>
+            <a 
+              href="/attendant"
+              className="w-full py-4 rounded-xl text-gray-500 font-semibold text-center hover:bg-gray-100 transition-colors border border-gray-300 text-lg"
+            >
+              Área do Atendente
             </a>
           </div>
         )}
