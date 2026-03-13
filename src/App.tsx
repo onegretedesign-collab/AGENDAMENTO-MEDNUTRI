@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Instagram } from 'lucide-react';
+import { Instagram, Calendar as CalendarIcon, CheckCircle2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import Login from './components/Login';
 import AttendantView from './components/AttendantView';
+import Calendar from './components/Calendar';
 
 const socket = io();
 
@@ -27,8 +28,10 @@ export default function App() {
   const [name, setName] = useState(() => localStorage.getItem('mednutri_name') || '');
   const [contact, setContact] = useState(() => localStorage.getItem('mednutri_contact') || '');
   const [consultationType, setConsultationType] = useState<string | null>(() => localStorage.getItem('mednutri_type'));
+  const [showExams, setShowExams] = useState(false);
   const [step, setStep] = useState<'welcome' | 'select' | 'type' | 'input' | 'final'>('welcome');
   const [showConfirmBack, setShowConfirmBack] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const handleLocationChange = () => setCurrentPath(window.location.pathname);
@@ -71,7 +74,6 @@ export default function App() {
     return <AttendantView onLogout={() => {
       localStorage.removeItem('mednutri_isLoggedIn');
       setIsLoggedIn(false);
-      window.location.href = '/';
     }} />;
   }
 
@@ -85,14 +87,29 @@ export default function App() {
     setStep('input');
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (name.trim() && contact.trim() && selectedCity && consultationType) {
-      fetch('/api/notify-attendant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientName: name, contact, city: selectedCity, type: consultationType }),
-      }).catch(console.error);
-      setStep('final');
+      setIsSubmitting(true);
+      try {
+        // Notify attendant
+        await fetch('/api/notify-attendant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            patientName: name, 
+            contact, 
+            city: selectedCity, 
+            type: consultationType,
+            showExams
+          }),
+        });
+
+        setStep('final');
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -127,9 +144,14 @@ export default function App() {
   };
 
   const getWhatsAppLink = () => {
-    const message = consultationType === 'Retorno' 
+    let message = consultationType === 'Retorno' 
       ? `Olá, meu nome é ${name} e gostaria de um retorno em ${selectedCity}.`
       : `Olá, meu nome é ${name} e gostaria de uma nova consulta em ${selectedCity}.`;
+    
+    if (consultationType === 'Retorno' && showExams) {
+      message += " Vou mostrar exames.";
+    }
+    
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
   };
 
@@ -234,6 +256,7 @@ export default function App() {
         {step === 'input' && (
           <div className="w-full flex flex-col gap-4">
             <h1 className="text-2xl font-bold text-center">Olá! Qual o seu nome e contato?</h1>
+            <p className="text-center text-gray-600">Tipo: <span className="font-semibold text-[#05556C]">{consultationType}</span> em <span className="font-semibold text-[#05556C]">{selectedCity}</span></p>
             <input 
               type="text" 
               value={name}
@@ -248,12 +271,26 @@ export default function App() {
               placeholder="Digite seu WhatsApp/Contato"
               className="w-full p-4 border-2 border-gray-300 rounded-xl focus:border-[#05556C] outline-none transition-colors"
             />
+            {consultationType === 'Retorno' && (
+              <label className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer border-2 border-transparent hover:border-gray-200 transition-all">
+                <input 
+                  type="checkbox" 
+                  checked={showExams}
+                  onChange={(e) => setShowExams(e.target.checked)}
+                  className="w-5 h-5 accent-[#05556C]"
+                />
+                <span className="text-gray-700 font-medium">Vou mostrar exames?</span>
+              </label>
+            )}
             <button 
               onClick={handleConfirm}
-              className="w-full py-4 rounded-xl text-white font-semibold hover:scale-105 transition-transform duration-200 shadow-md"
-              style={{ backgroundColor: '#05556C' }}
+              disabled={isSubmitting}
+              className={`w-full py-4 rounded-xl text-white font-semibold hover:scale-105 transition-all duration-200 shadow-md flex items-center justify-center gap-2
+                ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : ''}
+              `}
+              style={{ backgroundColor: isSubmitting ? undefined : '#05556C' }}
             >
-              Confirmar
+              {isSubmitting ? 'Processando...' : 'Confirmar'}
             </button>
             <button 
               onClick={handleBack}
@@ -265,31 +302,35 @@ export default function App() {
         )}
 
         {step === 'final' && (
-          <div className="w-full flex flex-col gap-4 text-center">
-            <h1 className="text-2xl font-bold">Pronto! Primeiro passo dado.</h1>
-            <p className="text-gray-700">Agora você falará com nossa equipe para finalizar seu agendamento diretamente com ela pelo nosso whatsapp.</p>
+          <div className="w-full flex flex-col gap-4 text-center animate-in fade-in zoom-in duration-500">
+            <div className="flex justify-center mb-2">
+              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center">
+                <CheckCircle2 size={48} className="text-emerald-500" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold text-emerald-600">Solicitação Enviada!</h1>
+            <p className="text-gray-700">
+              Olá <span className="font-bold">{name}</span>, sua solicitação de agendamento em <span className="font-bold">{selectedCity}</span> foi enviada com sucesso.
+            </p>
+            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-sm text-blue-800">
+              <p>Agora você falará com nossa equipe para finalizar seu agendamento diretamente pelo WhatsApp.</p>
+            </div>
             <a 
               href={getWhatsAppLink()}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-4 rounded-xl text-white font-semibold text-center hover:scale-105 transition-transform duration-200"
+              className="w-full py-4 rounded-xl text-white font-semibold text-center hover:scale-105 transition-transform duration-200 shadow-lg"
               style={{ backgroundColor: '#05556C' }}
             >
-              Falar no WhatsApp
+              Falar no WhatsApp agora
             </a>
-            <button 
-              onClick={handleBack}
-              className="w-full py-2 text-gray-500 hover:text-gray-700 font-medium transition-colors"
-            >
-              ← Voltar para o nome
-            </button>
             <button 
               onClick={handleReset}
               className="w-full py-3 mt-2 bg-gray-100 text-[#05556C] font-semibold rounded-xl hover:bg-gray-200 transition-colors border border-[#05556C]/10"
             >
               Voltar para o início
             </button>
-            <p className="mt-4 text-sm text-gray-500">A mednutri agradece pela preferência.</p>
+            <p className="mt-4 text-sm text-gray-500 italic">A MedNutri agradece pela preferência e confiança.</p>
           </div>
         )}
       </div>
